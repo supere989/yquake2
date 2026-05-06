@@ -57,6 +57,10 @@ SV_ClientPrintf(client_t *cl, int level, const char *fmt, ...)
 	va_list argptr;
 	char string[1024];
 
+	/* bot/unconnected slots have no netchan — silently discard */
+	if (!cl || cl->netchan.message.maxsize == 0)
+		return;
+
 	va_start(argptr, fmt);
 	vsnprintf(string, sizeof(string), fmt, argptr);
 	va_end(argptr);

@@ -56,6 +56,13 @@ PF_Unicast(edict_t *ent, qboolean reliable)
 
 	client = svs.clients + (p - 1);
 
+	/* bot/unconnected slots have no netchan — discard and clear */
+	if (client->netchan.message.maxsize == 0)
+	{
+		SZ_Clear(&sv.multicast);
+		return;
+	}
+
 	if (reliable)
 	{
 		SZ_Write(&client->netchan.message, sv.multicast.data,

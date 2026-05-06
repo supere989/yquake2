@@ -287,6 +287,7 @@ SV_SpawnServer(char *server, char *spawnpoint, server_state_t serverstate,
 	}
 
 	SZ_Init(&sv.multicast, sv.multicast_buf, sizeof(sv.multicast_buf));
+	sv.multicast.allowoverflow = true;
 
 	strcpy(sv.name, server);
 

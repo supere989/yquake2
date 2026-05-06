@@ -640,6 +640,11 @@ SV_Init(void)
 	sv_entfile = Cvar_Get("sv_entfile", "1", CVAR_ARCHIVE);
 
 	SZ_Init(&net_message, net_message_buffer, sizeof(net_message_buffer));
+
+	/* pre-init sv.multicast so SV_BroadcastCommand can't write into a
+	   zero-maxsize buffer before SV_SpawnServer initializes it properly */
+	SZ_Init(&sv.multicast, sv.multicast_buf, sizeof(sv.multicast_buf));
+	sv.multicast.allowoverflow = true;
 }
 
 /*

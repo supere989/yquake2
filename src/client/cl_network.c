@@ -25,6 +25,7 @@
  */
 
 #include "header/client.h"
+#include "header/ml_harness.h"
 #include "../client/sound/header/local.h"
 
 void CL_ParseStatusMessage(void);
@@ -728,6 +729,10 @@ CL_ReadPackets(void)
 {
 	while (NET_GetPacket(NS_CLIENT, &net_from, &net_message))
 	{
+		if (ML_HarnessPacket(net_from, net_message.data, net_message.cursize))
+		{
+			continue;
+		}
 		/* remote command packet */
 		if (*(int *)net_message.data == -1)
 		{
@@ -762,6 +767,8 @@ CL_ReadPackets(void)
 		CL_ParseServerMessage();
 	}
 
+	ML_HarnessPump();
+
 	/* check timeout */
 	if ((cls.state >= ca_connected) &&
 		(cls.realtime - cls.netchan.last_received > cl_timeout->value * 1000))
@@ -779,4 +786,3 @@ CL_ReadPackets(void)
 		cl.timeoutcount = 0;
 	}
 }
-

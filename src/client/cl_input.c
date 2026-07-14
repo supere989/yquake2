@@ -26,6 +26,7 @@
  */
 
 #include "header/client.h"
+#include "header/ml_harness.h"
 #include "input/header/input.h"
 
 static cvar_t *cl_nodelta;
@@ -635,7 +636,11 @@ CL_RefreshCmd(void)
 
 	// Add movement
 	CL_BaseMove(cmd);
-	IN_Move(cmd);
+	if (!ML_HarnessHeadless())
+	{
+		IN_Move(cmd);
+	}
+	ML_HarnessApplyAction(cmd);
 
 	// Clamp angels for prediction
 	CL_ClampPitch();
@@ -687,7 +692,10 @@ CL_RefreshMove(void)
 
 	// Add movement
 	CL_BaseMove(cmd);
-	IN_Move(cmd);
+	if (!ML_HarnessHeadless())
+	{
+		IN_Move(cmd);
+	}
 
 	old_sys_frame_time = sys_frame_time;
 }
@@ -831,4 +839,3 @@ CL_SendCmd(void)
 	cmd = &cl.cmds[cls.netchan.outgoing_sequence & (CMD_BACKUP - 1)];
 	memset(cmd, 0, sizeof(*cmd));
 }
-

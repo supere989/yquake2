@@ -25,6 +25,7 @@
  */
 
 #include "header/client.h"
+#include "header/ml_harness.h"
 
 extern cvar_t *allow_download;
 extern cvar_t *allow_download_players;
@@ -524,8 +525,17 @@ CL_RequestNextDownload(void)
 	dlquirks.filelist = true;
 #endif
 
-	CL_RegisterSounds();
-	CL_PrepRefresh();
+	if (!ML_HarnessHeadless())
+	{
+		CL_RegisterSounds();
+		CL_PrepRefresh();
+	}
+	else
+	{
+		/* Asset checks/downloads still run, but a training client has no
+		   renderer or sound registry to prepare. */
+		cl.refresh_prepped = false;
+	}
 
 	MSG_WriteByte(&cls.netchan.message, clc_stringcmd);
 	MSG_WriteString(&cls.netchan.message, va("begin %i\n", precache_spawncount));
@@ -831,4 +841,3 @@ CL_ParseDownload(void)
 		CL_RequestNextDownload();
 	}
 }
-

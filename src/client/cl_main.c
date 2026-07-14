@@ -27,6 +27,7 @@
 
 #include <errno.h>
 #include "header/client.h"
+#include "header/ml_harness.h"
 #include "input/header/input.h"
 
 void CL_ForwardToServer_f(void);
@@ -875,8 +876,17 @@ CL_Frame(int packetdelta, int renderdelta, int timedelta, qboolean packetframe, 
 	if (packetframe || renderframe)
 	{
 		CL_ReadPackets();
-		CL_UpdateWindowedMouse();
-		IN_Update();
+		if (!ML_HarnessHeadless())
+		{
+			CL_UpdateWindowedMouse();
+			IN_Update();
+		}
+		else
+		{
+			/* SDL input normally advances this clock. Headless clients still
+			   need it or CL_RefreshCmd rejects every usercmd as zero-duration. */
+			sys_frame_time = Sys_Milliseconds();
+		}
 		Cbuf_Execute();
 		CL_FixCvarCheats();
 
@@ -907,7 +917,7 @@ CL_Frame(int packetdelta, int renderdelta, int timedelta, qboolean packetframe, 
 #endif
 	}
 
-	if (renderframe)
+	if (renderframe && !ML_HarnessHeadless())
 	{
 		VID_CheckChanges();
 		CL_PredictMovement();
@@ -982,22 +992,27 @@ CL_Init(void)
 
 	/* all archived variables will now be loaded */
 	Con_Init();
+	ML_HarnessInit();
 
-	S_Init();
+	if (!ML_HarnessHeadless())
+	{
+		S_Init();
 
-	SCR_Init();
+		SCR_Init();
 
-	VID_Init();
+		VID_Init();
 
-	IN_Init();
+		IN_Init();
 
-	V_Init();
+		V_Init();
+	}
 
 	net_message.data = net_message_buffer;
 
 	net_message.maxsize = sizeof(net_message_buffer);
 
-	M_Init();
+	if (!ML_HarnessHeadless())
+		M_Init();
 
 #ifdef USE_CURL
 	CL_InitHTTPDownloads();
@@ -1006,7 +1021,6 @@ CL_Init(void)
 	cls.disable_screen = true; /* don't draw yet */
 
 	CL_InitLocal();
-
 	Cbuf_Execute();
 
 	Key_ReadConsoleHistory();
@@ -1024,6 +1038,7 @@ CL_Shutdown(void)
 	}
 
 	isdown = true;
+	ML_HarnessShutdown();
 
 #ifdef USE_CURL
 	CL_HTTP_Cleanup(true);
@@ -1035,9 +1050,12 @@ CL_Shutdown(void)
 
 	OGG_Stop();
 
-	S_Shutdown();
-	IN_Shutdown();
-	VID_Shutdown();
+	if (!ML_HarnessHeadless())
+	{
+		S_Shutdown();
+		IN_Shutdown();
+		VID_Shutdown();
+	}
 
 	CL_ClearEntities();
 	Mods_NamesFinish();

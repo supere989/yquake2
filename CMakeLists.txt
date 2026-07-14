@@ -443,6 +443,7 @@ set(Client-Source
 	${CLIENT_SRC_DIR}/cl_keyboard.c
 	${CLIENT_SRC_DIR}/cl_lights.c
 	${CLIENT_SRC_DIR}/cl_main.c
+	${CLIENT_SRC_DIR}/cl_ml_harness.c
 	${CLIENT_SRC_DIR}/cl_network.c
 	${CLIENT_SRC_DIR}/cl_parse.c
 	${CLIENT_SRC_DIR}/cl_particles.c

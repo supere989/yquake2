@@ -1010,6 +1010,7 @@ CLIENT_OBJS_ := \
 	src/client/cl_keyboard.o \
 	src/client/cl_lights.o \
 	src/client/cl_main.o \
+	src/client/cl_ml_harness.o \
 	src/client/cl_network.o \
 	src/client/cl_parse.o \
 	src/client/cl_particles.o \

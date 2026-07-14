@@ -25,6 +25,7 @@
  */
 
 #include "header/client.h"
+#include "header/ml_harness.h"
 #include "input/header/input.h"
 
 void CL_DownloadFileName(char *dest, int destlen, char *fn);
@@ -1470,7 +1471,8 @@ CL_ParseServerMessage(void)
 		}
 	}
 
-	CL_AddNetgraph();
+	if (!ML_HarnessHeadless())
+		CL_AddNetgraph();
 
 	/* we don't know if it is ok to save a demo message
 	   until after we have parsed the frame */
@@ -1479,4 +1481,3 @@ CL_ParseServerMessage(void)
 		CL_WriteDemoMessage();
 	}
 }
-

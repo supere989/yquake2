@@ -69,6 +69,7 @@ def write_bsp(
     *,
     brushes: list[tuple[tuple[float, float, float], tuple[float, float, float], int]] | None = None,
     split_contents: int | None = None,
+    inline_model_brush: int | None = None,
 ) -> None:
     """Write a valid collision-only BSP.
 
@@ -80,6 +81,11 @@ def write_bsp(
     # structural sentinel when the caller only needs point contents/PVS.
     if not brushes:
         brushes.append(((3000.0, 3000.0, 3000.0), (3010.0, 3010.0, 3010.0), CONTENTS_SOLID))
+    if inline_model_brush is not None:
+        if split_contents is not None:
+            raise ValueError("inline fixtures require brush-based collision")
+        if inline_model_brush < 0 or inline_model_brush >= len(brushes):
+            raise ValueError("inline_model_brush is outside brushes")
 
     planes = [_plane((1.0, 0.0, 0.0), 0.0), _plane((-1.0, 0.0, 0.0), 0.0)]
     brush_records = []
@@ -139,21 +145,17 @@ def write_bsp(
     texinfo = struct.pack(
         "<8fii32si", 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, b"oracle\0", -1
     )
-    model = struct.pack(
-        "<9f3i",
-        -4096,
-        -4096,
-        -4096,
-        4096,
-        4096,
-        4096,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-    )
+    def model_record(
+        mins: tuple[float, float, float],
+        maxs: tuple[float, float, float],
+        headnode: int,
+    ) -> bytes:
+        return struct.pack("<9f3i", *mins, *maxs, 0, 0, 0, headnode, 0, 0)
+
+    model = model_record((-4096, -4096, -4096), (4096, 4096, 4096), 0)
+    if inline_model_brush is not None:
+        inline_mins, inline_maxs, _ = brushes[inline_model_brush]
+        model += model_record(inline_mins, inline_maxs, inline_model_brush * 6)
     lumps = [b"" for _ in range(HEADER_LUMPS)]
     lumps[LUMP_ENTITIES] = b'{"classname" "worldspawn"}\0'
     lumps[LUMP_PLANES] = b"".join(planes)

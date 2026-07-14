@@ -20,10 +20,17 @@ CM_FIELDS = {
     "identity": {"provenance", "source", "map", "model0", "clusters", "inline_models"},
     "map_info": {"provenance", "source", "map", "model0", "clusters", "inline_models"},
     "point_contents": {"point", "headnode", "contents"},
+    "transformed_point_contents": {
+        "point", "headnode", "origin", "angles", "contents",
+    },
     "point_cluster": {"point", "leaf", "cluster", "area", "contents"},
     "box_trace": {
         "headnode", "mask", "fraction", "allsolid", "startsolid", "endpos",
         "plane", "contents", "surface",
+    },
+    "transformed_box_trace": {
+        "headnode", "mask", "origin", "angles", "fraction", "allsolid",
+        "startsolid", "endpos", "plane", "contents", "surface",
     },
     "pvs": {"from_cluster", "to_cluster", "potentially_visible"},
     "set_areaportal": {"portal", "open"},

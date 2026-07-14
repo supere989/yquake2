@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <float.h>
 #include <limits.h>
 #include <math.h>
 #include <stdlib.h>
@@ -71,7 +72,9 @@ int Q2_JsonNumber(const char *json, const char *key, double *out)
 		return 0;
 	errno = 0;
 	value = strtod(p, &end);
-	if (end == p || errno == ERANGE || !isfinite(value))
+	end = (char *)skip_space(end);
+	if (end == p || errno == ERANGE || !isfinite(value) ||
+		(*end && *end != ',' && *end != '}' && *end != ']'))
 		return 0;
 	*out = value;
 	return 1;
@@ -122,8 +125,13 @@ int Q2_JsonVec3(const char *json, const char *key, vec3_t out)
 	double values[3];
 	if (!out || !parse_vec3(Q2_JsonValue(json, key), values))
 		return 0;
-	for (int i = 0; i < 3; ++i)
+	for (int i = 0; i < 3; ++i) {
+		if (values[i] < -FLT_MAX || values[i] > FLT_MAX)
+			return 0;
 		out[i] = (float)values[i];
+		if (!isfinite(out[i]))
+			return 0;
+	}
 	return 1;
 }
 

@@ -31,14 +31,30 @@ release/q2-cm-oracle --map /path/to/map.bsp <<'EOF'
 {"id":"m","op":"map_info"}
 {"id":"c","op":"point_contents","point":[0,0,24]}
 {"id":"t","op":"box_trace","start":[0,0,24],"end":[64,0,24],"mins":[-16,-16,-24],"maxs":[16,16,32],"mask":65539}
+{"id":"ic","op":"transformed_point_contents","point":[120,50,0],"headnode":42,"origin":[100,50,0],"angles":[0,90,0]}
+{"id":"it","op":"transformed_box_trace","start":[50,50,0],"end":[150,50,0],"mins":[0,0,0],"maxs":[0,0,0],"headnode":42,"mask":1,"origin":[100,50,0],"angles":[0,90,0]}
 {"id":"v","op":"pvs","from":[0,0,24],"to":[64,0,24]}
 EOF
 ```
 
 Operations are `identity`/`map_info`, `point_contents`, `point_cluster`,
-`box_trace`, `pvs`, `set_areaportal`, and `areas_connected`. PVS is explicitly
-a coarse cluster result; callers must use a `box_trace` with the appropriate
-mask for occlusion.
+`box_trace`, `transformed_point_contents`, `transformed_box_trace`, `pvs`,
+`set_areaportal`, and `areas_connected`. The two transformed operations call
+Yamagi's `CM_TransformedPointContents` and `CM_TransformedBoxTrace` directly;
+they are the collision authority for translated or rotated BSP brush entities
+such as doors, lifts, trains, and buttons. Their `headnode` is mandatory and
+must match a headnode from one of the loaded BSP's inline `*N` models. Model 0,
+arbitrary tree nodes, and synthetic box headnodes are rejected unless that same
+headnode is also owned by a real inline model.
+
+Transformed request coordinates, including trace hull extents, are finite and
+bounded to `[-1048576, 1048576]`. Transform angles are degrees in `[-360, 360]`;
+callers must normalize equivalent rotations before invoking the oracle. A trace
+also rejects any axis where `mins > maxs`. Those limits are part of the request
+schema and source-bound tool identity, so malformed, nonfinite, unnormalized,
+or out-of-range transforms fail closed instead of reaching collision math.
+PVS is explicitly a coarse cluster result; callers must use a `box_trace` or
+`transformed_box_trace` with the appropriate mask for occlusion.
 
 ## `q2-pmove-oracle`
 

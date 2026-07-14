@@ -16,15 +16,17 @@
       "allOf": [
         {"if": {"properties": {"op": {"enum": ["identity", "map_info"]}}}, "then": {"required": ["provenance", "source", "map", "model0", "clusters", "inline_models"]}},
         {"if": {"properties": {"op": {"const": "point_contents"}}}, "then": {"required": ["point", "headnode", "contents"]}},
+        {"if": {"properties": {"op": {"const": "transformed_point_contents"}}}, "then": {"required": ["point", "headnode", "origin", "angles", "contents"]}},
         {"if": {"properties": {"op": {"const": "point_cluster"}}}, "then": {"required": ["point", "leaf", "cluster", "area", "contents"]}},
         {"if": {"properties": {"op": {"const": "box_trace"}}}, "then": {"required": ["headnode", "mask", "fraction", "allsolid", "startsolid", "endpos", "plane", "contents", "surface"]}},
+        {"if": {"properties": {"op": {"const": "transformed_box_trace"}}}, "then": {"required": ["headnode", "mask", "origin", "angles", "fraction", "allsolid", "startsolid", "endpos", "plane", "contents", "surface"]}},
         {"if": {"properties": {"op": {"const": "pvs"}}}, "then": {"required": ["from_cluster", "to_cluster", "potentially_visible"]}},
         {"if": {"properties": {"op": {"const": "set_areaportal"}}}, "then": {"required": ["portal", "open"]}},
         {"if": {"properties": {"op": {"const": "areas_connected"}}}, "then": {"required": ["area1", "area2", "connected"]}}
       ],
       "properties": {
         "ok": {"const": true}, "id": {"type": "string"},
-        "op": {"enum": ["identity", "map_info", "point_contents", "point_cluster", "box_trace", "pvs", "set_areaportal", "areas_connected"]},
+        "op": {"enum": ["identity", "map_info", "point_contents", "transformed_point_contents", "point_cluster", "box_trace", "transformed_box_trace", "pvs", "set_areaportal", "areas_connected"]},
         "schema": {"const": "q2-cm-oracle-v1"},
         "tool_identity": {"$ref": "#/$defs/sha256"}, "physics_identity": {"$ref": "#/$defs/sha256"},
         "map_sha256": {"$ref": "#/$defs/sha256"}, "map_checksum": {"type": "integer", "minimum": 0},
@@ -33,6 +35,7 @@
         "map": {"type": "string"}, "model0": {"$ref": "#/$defs/model"},
         "clusters": {"type": "integer"}, "inline_models": {"type": "integer"},
         "point": {"$ref": "#/$defs/vec3"}, "headnode": {"type": "integer"}, "contents": {"type": "integer"},
+        "origin": {"$ref": "#/$defs/vec3"}, "angles": {"$ref": "#/$defs/vec3"},
         "leaf": {"type": "integer"}, "cluster": {"type": "integer"}, "area": {"type": "integer"},
         "mask": {"type": "integer"}, "fraction": {"type": "number"}, "allsolid": {"type": "boolean"},
         "startsolid": {"type": "boolean"}, "endpos": {"$ref": "#/$defs/vec3"},

@@ -5,16 +5,39 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["op"],
+  "allOf": [
+    {
+      "if": {"properties": {"op": {"const": "transformed_point_contents"}}},
+      "then": {
+        "required": ["point", "headnode", "origin", "angles"],
+        "properties": {"point": {"$ref": "#/$defs/boundedCoordinateVec3"}}
+      }
+    },
+    {
+      "if": {"properties": {"op": {"const": "transformed_box_trace"}}},
+      "then": {
+        "required": ["start", "end", "mins", "maxs", "headnode", "origin", "angles"],
+        "properties": {
+          "start": {"$ref": "#/$defs/boundedCoordinateVec3"},
+          "end": {"$ref": "#/$defs/boundedCoordinateVec3"},
+          "mins": {"$ref": "#/$defs/boundedCoordinateVec3"},
+          "maxs": {"$ref": "#/$defs/boundedCoordinateVec3"}
+        }
+      }
+    }
+  ],
   "properties": {
     "id": {"type": "string", "maxLength": 127},
     "op": {
-      "enum": ["identity", "map_info", "point_contents", "point_cluster", "box_trace", "pvs", "set_areaportal", "areas_connected"]
+      "enum": ["identity", "map_info", "point_contents", "transformed_point_contents", "point_cluster", "box_trace", "transformed_box_trace", "pvs", "set_areaportal", "areas_connected"]
     },
     "point": {"$ref": "#/$defs/vec3"},
     "start": {"$ref": "#/$defs/vec3"},
     "end": {"$ref": "#/$defs/vec3"},
     "mins": {"$ref": "#/$defs/vec3"},
     "maxs": {"$ref": "#/$defs/vec3"},
+    "origin": {"$ref": "#/$defs/boundedCoordinateVec3"},
+    "angles": {"$ref": "#/$defs/boundedAngleVec3"},
     "from": {"$ref": "#/$defs/vec3"},
     "to": {"$ref": "#/$defs/vec3"},
     "headnode": {"type": "integer"},
@@ -31,6 +54,20 @@
     "vec3": {
       "type": "array",
       "prefixItems": [{"$ref": "#/$defs/finite"}, {"$ref": "#/$defs/finite"}, {"$ref": "#/$defs/finite"}],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "boundedCoordinate": {"type": "number", "minimum": -1048576, "maximum": 1048576},
+    "boundedAngle": {"type": "number", "minimum": -360, "maximum": 360},
+    "boundedCoordinateVec3": {
+      "type": "array",
+      "prefixItems": [{"$ref": "#/$defs/boundedCoordinate"}, {"$ref": "#/$defs/boundedCoordinate"}, {"$ref": "#/$defs/boundedCoordinate"}],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "boundedAngleVec3": {
+      "type": "array",
+      "prefixItems": [{"$ref": "#/$defs/boundedAngle"}, {"$ref": "#/$defs/boundedAngle"}, {"$ref": "#/$defs/boundedAngle"}],
       "minItems": 3,
       "maxItems": 3
     }

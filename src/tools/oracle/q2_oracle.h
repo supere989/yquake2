@@ -10,6 +10,8 @@
 #define Q2_ORACLE_SCHEMA "q2-physics-oracle-v1"
 #define Q2_ORACLE_MAX_LINE (1024 * 1024)
 #define Q2_ORACLE_MAX_COMMANDS 4096
+#define Q2_ORACLE_MAX_ABS_COORDINATE 1048576.0
+#define Q2_ORACLE_MAX_ABS_ANGLE 360.0
 
 typedef struct
 {

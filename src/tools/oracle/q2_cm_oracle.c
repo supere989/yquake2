@@ -2,6 +2,7 @@
 #include "oracle_identity.h"
 
 #include <errno.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -10,6 +11,48 @@ static char map_sha256[65];
 static char physics_identity[65];
 static unsigned map_checksum;
 static cmodel_t *world_model;
+
+static int bounded_vec3(const char *line, const char *key, vec3_t out,
+		double maximum)
+{
+	if (!Q2_JsonVec3(line, key, out))
+		return 0;
+	for (int i = 0; i < 3; ++i) {
+		if (!isfinite(out[i]) || fabs((double)out[i]) > maximum)
+			return 0;
+	}
+	return 1;
+}
+
+static int inline_headnode_exists(int headnode)
+{
+	char name[32];
+	for (int model = 1; model < CM_NumInlineModels(); ++model) {
+		snprintf(name, sizeof(name), "*%d", model);
+		if (CM_InlineModel(name)->headnode == headnode)
+			return 1;
+	}
+	return 0;
+}
+
+static int parse_inline_transform(const char *line,
+		const q2_oracle_request_t *request, int *headnode,
+		vec3_t origin, vec3_t angles)
+{
+	if (!Q2_JsonInt(line, "headnode", headnode) ||
+		!bounded_vec3(line, "origin", origin, Q2_ORACLE_MAX_ABS_COORDINATE) ||
+		!bounded_vec3(line, "angles", angles, Q2_ORACLE_MAX_ABS_ANGLE)) {
+		Q2_OraclePrintError(request->id, "invalid_transform",
+			"headnode and bounded origin/angles vec3 values are required");
+		return 0;
+	}
+	if (!inline_headnode_exists(*headnode)) {
+		Q2_OraclePrintError(request->id, "inline_headnode",
+			"headnode does not belong to a loaded inline model");
+		return 0;
+	}
+	return 1;
+}
 
 static void print_prefix(const char *id, const char *op)
 {
@@ -68,6 +111,27 @@ static void handle_point_contents(const char *line, const q2_oracle_request_t *r
 		headnode, CM_PointContents(point, headnode));
 }
 
+static void handle_transformed_point_contents(const char *line,
+		const q2_oracle_request_t *request)
+{
+	vec3_t point, origin, angles;
+	int headnode;
+	if (!bounded_vec3(line, "point", point, Q2_ORACLE_MAX_ABS_COORDINATE)) {
+		Q2_OraclePrintError(request->id, "invalid_point",
+			"point must be a bounded finite vec3");
+		return;
+	}
+	if (!parse_inline_transform(line, request, &headnode, origin, angles))
+		return;
+	print_prefix(request->id, request->op);
+	fputs(",\"point\":", stdout); Q2_OraclePrintVec3(stdout, point);
+	fprintf(stdout, ",\"headnode\":%d,\"origin\":", headnode);
+	Q2_OraclePrintVec3(stdout, origin);
+	fputs(",\"angles\":", stdout); Q2_OraclePrintVec3(stdout, angles);
+	fprintf(stdout, ",\"contents\":%d}\n",
+		CM_TransformedPointContents(point, headnode, origin, angles));
+}
+
 static void handle_point_cluster(const char *line, const q2_oracle_request_t *request)
 {
 	vec3_t point;
@@ -81,6 +145,30 @@ static void handle_point_cluster(const char *line, const q2_oracle_request_t *re
 	fputs(",\"point\":", stdout); Q2_OraclePrintVec3(stdout, point);
 	fprintf(stdout, ",\"leaf\":%d,\"cluster\":%d,\"area\":%d,\"contents\":%d}\n",
 		leaf, CM_LeafCluster(leaf), CM_LeafArea(leaf), CM_LeafContents(leaf));
+}
+
+static void print_trace_fields(int headnode, int mask, const trace_t *trace,
+		const vec3_t origin, const vec3_t angles)
+{
+	fprintf(stdout, ",\"headnode\":%d,\"mask\":%d", headnode, mask);
+	if (origin && angles) {
+		fputs(",\"origin\":", stdout); Q2_OraclePrintVec3(stdout, origin);
+		fputs(",\"angles\":", stdout); Q2_OraclePrintVec3(stdout, angles);
+	}
+	fprintf(stdout, ",\"fraction\":%.9g,\"allsolid\":%s,\"startsolid\":%s,\"endpos\":",
+		trace->fraction, trace->allsolid ? "true" : "false",
+		trace->startsolid ? "true" : "false");
+	Q2_OraclePrintVec3(stdout, trace->endpos);
+	fputs(",\"plane\":{\"normal\":", stdout); Q2_OraclePrintVec3(stdout, trace->plane.normal);
+	fprintf(stdout, ",\"dist\":%.9g,\"type\":%u,\"signbits\":%u},\"contents\":%d",
+		trace->plane.dist, trace->plane.type, trace->plane.signbits, trace->contents);
+	if (trace->surface) {
+		fputs(",\"surface\":{\"name\":", stdout); Q2_OraclePrintString(stdout, trace->surface->name);
+		fprintf(stdout, ",\"flags\":%d,\"value\":%d}", trace->surface->flags, trace->surface->value);
+	} else {
+		fputs(",\"surface\":null", stdout);
+	}
+	fputs("}\n", stdout);
 }
 
 static void handle_box_trace(const char *line, const q2_oracle_request_t *request)
@@ -97,21 +185,40 @@ static void handle_box_trace(const char *line, const q2_oracle_request_t *reques
 	Q2_JsonInt(line, "mask", &mask);
 	trace = CM_BoxTrace(start, end, mins, maxs, headnode, mask);
 	print_prefix(request->id, request->op);
-	fprintf(stdout, ",\"headnode\":%d,\"mask\":%d,\"fraction\":%.9g,"
-		"\"allsolid\":%s,\"startsolid\":%s,\"endpos\":",
-		headnode, mask, trace.fraction, trace.allsolid ? "true" : "false",
-		trace.startsolid ? "true" : "false");
-	Q2_OraclePrintVec3(stdout, trace.endpos);
-	fputs(",\"plane\":{\"normal\":", stdout); Q2_OraclePrintVec3(stdout, trace.plane.normal);
-	fprintf(stdout, ",\"dist\":%.9g,\"type\":%u,\"signbits\":%u},\"contents\":%d",
-		trace.plane.dist, trace.plane.type, trace.plane.signbits, trace.contents);
-	if (trace.surface) {
-		fputs(",\"surface\":{\"name\":", stdout); Q2_OraclePrintString(stdout, trace.surface->name);
-		fprintf(stdout, ",\"flags\":%d,\"value\":%d}", trace.surface->flags, trace.surface->value);
-	} else {
-		fputs(",\"surface\":null", stdout);
+	print_trace_fields(headnode, mask, &trace, NULL, NULL);
+}
+
+static void handle_transformed_box_trace(const char *line,
+		const q2_oracle_request_t *request)
+{
+	vec3_t start, end, mins, maxs, origin, angles;
+	trace_t trace;
+	int headnode, mask = MASK_PLAYERSOLID;
+	if (!bounded_vec3(line, "start", start, Q2_ORACLE_MAX_ABS_COORDINATE) ||
+		!bounded_vec3(line, "end", end, Q2_ORACLE_MAX_ABS_COORDINATE) ||
+		!bounded_vec3(line, "mins", mins, Q2_ORACLE_MAX_ABS_COORDINATE) ||
+		!bounded_vec3(line, "maxs", maxs, Q2_ORACLE_MAX_ABS_COORDINATE)) {
+		Q2_OraclePrintError(request->id, "invalid_trace",
+			"start/end/mins/maxs must be bounded finite vec3 values");
+		return;
 	}
-	fputs("}\n", stdout);
+	for (int i = 0; i < 3; ++i) {
+		if (mins[i] > maxs[i]) {
+			Q2_OraclePrintError(request->id, "invalid_trace",
+				"each mins component must be less than or equal to maxs");
+			return;
+		}
+	}
+	if (!parse_inline_transform(line, request, &headnode, origin, angles))
+		return;
+	if (Q2_JsonValue(line, "mask") && !Q2_JsonInt(line, "mask", &mask)) {
+		Q2_OraclePrintError(request->id, "invalid_trace", "mask must be an integer");
+		return;
+	}
+	trace = CM_TransformedBoxTrace(start, end, mins, maxs, headnode, mask,
+		origin, angles);
+	print_prefix(request->id, request->op);
+	print_trace_fields(headnode, mask, &trace, origin, angles);
 }
 
 static void handle_pvs(const char *line, const q2_oracle_request_t *request)
@@ -180,10 +287,14 @@ static void handle_line(const char *line)
 		handle_map_info(&request);
 	else if (strcmp(request.op, "point_contents") == 0)
 		handle_point_contents(line, &request);
+	else if (strcmp(request.op, "transformed_point_contents") == 0)
+		handle_transformed_point_contents(line, &request);
 	else if (strcmp(request.op, "point_cluster") == 0)
 		handle_point_cluster(line, &request);
 	else if (strcmp(request.op, "box_trace") == 0)
 		handle_box_trace(line, &request);
+	else if (strcmp(request.op, "transformed_box_trace") == 0)
+		handle_transformed_box_trace(line, &request);
 	else if (strcmp(request.op, "pvs") == 0)
 		handle_pvs(line, &request);
 	else if (strcmp(request.op, "set_areaportal") == 0)

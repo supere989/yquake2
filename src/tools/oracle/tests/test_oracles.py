@@ -56,6 +56,12 @@ class OracleTests(unittest.TestCase):
         write_bsp(cls.ceiling, brushes=[((-128, -128, 20), (128, 128, 128), SOLID)])
         cls.wall = cls.dir / "wall.bsp"
         write_bsp(cls.wall, brushes=[((-4, -256, -128), (4, 256, 256), SOLID)])
+        cls.inline = cls.dir / "inline.bsp"
+        write_bsp(
+            cls.inline,
+            brushes=[((-8, -24, -16), (8, 24, 16), SOLID)],
+            inline_model_brush=0,
+        )
         cls.step18 = cls.dir / "step18.bsp"
         cls.step19 = cls.dir / "step19.bsp"
         for height, destination in ((18, cls.step18), (19, cls.step19)):
@@ -105,6 +111,13 @@ class OracleTests(unittest.TestCase):
         for name, schema_id in expected.items():
             with self.subTest(schema=name):
                 self.assertEqual(json.loads((schemas / name).read_text())["$id"], schema_id)
+        cm_request = json.loads((schemas / "q2-cm-oracle-v1.schema.json").read_text())
+        cm_response = json.loads((schemas / "q2-cm-oracle-v1.response.schema.json").read_text())
+        for operation in ("transformed_point_contents", "transformed_box_trace"):
+            self.assertIn(operation, cm_request["properties"]["op"]["enum"])
+            self.assertIn(operation, cm_response["$defs"]["success"]["properties"]["op"]["enum"])
+        self.assertEqual(cm_request["$defs"]["boundedCoordinate"]["maximum"], 1048576)
+        self.assertEqual(cm_request["$defs"]["boundedAngle"]["maximum"], 360)
 
     def test_identity_admission_is_strict_and_fail_closed(self) -> None:
         validate_identity_record(self.cm_identity, "cm")
@@ -194,6 +207,96 @@ class OracleTests(unittest.TestCase):
         self.assertGreater(swept["fraction"], 0)
         self.assertLess(swept["fraction"], 1)
         self.assertAlmostEqual(swept["endpos"][0], -20.03125, places=5)
+
+    def test_transformed_inline_model_translation_and_rotation_goldens(self) -> None:
+        responses = invoke(CM, self.inline, [
+            {
+                "id": "translated-inside", "op": "transformed_point_contents",
+                "point": [100, 70, 0], "headnode": 0,
+                "origin": [100, 50, 0], "angles": [0, 0, 0],
+            },
+            {
+                "id": "translated-outside", "op": "transformed_point_contents",
+                "point": [120, 50, 0], "headnode": 0,
+                "origin": [100, 50, 0], "angles": [0, 0, 0],
+            },
+            {
+                "id": "rotated-inside", "op": "transformed_point_contents",
+                "point": [120, 50, 0], "headnode": 0,
+                "origin": [100, 50, 0], "angles": [0, 90, 0],
+            },
+            {
+                "id": "rotated-outside", "op": "transformed_point_contents",
+                "point": [100, 70, 0], "headnode": 0,
+                "origin": [100, 50, 0], "angles": [0, 90, 0],
+            },
+            {
+                "id": "translated-trace", "op": "transformed_box_trace",
+                "start": [50, 50, 0], "end": [150, 50, 0],
+                "mins": [0, 0, 0], "maxs": [0, 0, 0], "mask": SOLID,
+                "headnode": 0, "origin": [100, 50, 0], "angles": [0, 0, 0],
+            },
+            {
+                "id": "rotated-trace", "op": "transformed_box_trace",
+                "start": [50, 50, 0], "end": [150, 50, 0],
+                "mins": [0, 0, 0], "maxs": [0, 0, 0], "mask": SOLID,
+                "headnode": 0, "origin": [100, 50, 0], "angles": [0, 90, 0],
+            },
+        ])
+        self.assertEqual([record["contents"] for record in responses[:4]], [SOLID, 0, SOLID, 0])
+        self.assertAlmostEqual(responses[4]["fraction"], 0.4196875, places=7)
+        self.assertAlmostEqual(responses[4]["endpos"][0], 91.96875, places=5)
+        self.assertAlmostEqual(responses[5]["fraction"], 0.2596875, places=7)
+        self.assertAlmostEqual(responses[5]["endpos"][0], 75.96875, places=5)
+        self.assertEqual(responses[5]["origin"], [100, 50, 0])
+        self.assertEqual(responses[5]["angles"], [0, 90, 0])
+        inline_identity = invoke(CM, self.inline, [{"id": "identity", "op": "identity"}])[0]
+        validate_response(responses[2], inline_identity, "cm")
+        validate_response(responses[5], inline_identity, "cm")
+        unsealed = copy.deepcopy(responses[5])
+        del unsealed["angles"]
+        with self.assertRaises(IdentityMismatch):
+            validate_response(unsealed, inline_identity, "cm")
+
+    def test_transformed_inline_model_requests_fail_closed(self) -> None:
+        base = {
+            "id": "bad", "op": "transformed_point_contents", "point": [100, 50, 0],
+            "headnode": 0, "origin": [100, 50, 0], "angles": [0, 0, 0],
+        }
+        cases = []
+        missing_origin = copy.deepcopy(base)
+        del missing_origin["origin"]
+        cases.append((missing_origin, "invalid_transform"))
+        nonfinite_origin = copy.deepcopy(base)
+        nonfinite_origin["origin"] = [float("nan"), 50, 0]
+        cases.append((nonfinite_origin, "invalid_transform"))
+        oversized_origin = copy.deepcopy(base)
+        oversized_origin["origin"] = [1048577, 50, 0]
+        cases.append((oversized_origin, "invalid_transform"))
+        oversized_angle = copy.deepcopy(base)
+        oversized_angle["angles"] = [0, 361, 0]
+        cases.append((oversized_angle, "invalid_transform"))
+        invalid_headnode = copy.deepcopy(base)
+        invalid_headnode["headnode"] = 1
+        cases.append((invalid_headnode, "inline_headnode"))
+        for request, error in cases:
+            with self.subTest(error=error, request=request):
+                response = invoke(CM, self.inline, [request])[0]
+                self.assertFalse(response["ok"])
+                self.assertEqual(response["error"], error)
+
+        world_only = invoke(CM, self.floor, [base])[0]
+        self.assertFalse(world_only["ok"])
+        self.assertEqual(world_only["error"], "inline_headnode")
+        inverted = {
+            "id": "inverted", "op": "transformed_box_trace",
+            "start": [0, 0, 0], "end": [1, 0, 0],
+            "mins": [1, 0, 0], "maxs": [-1, 0, 0], "mask": SOLID,
+            "headnode": 0, "origin": [0, 0, 0], "angles": [0, 0, 0],
+        }
+        response = invoke(CM, self.inline, [inverted])[0]
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["error"], "invalid_trace")
 
     def test_pvs_is_coarse_and_trace_is_authoritative(self) -> None:
         pvs = invoke(CM, self.wall, [

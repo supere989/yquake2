@@ -88,6 +88,7 @@ static ml_action_t latest_action;
 static uint32_t latest_action_tick;
 static uint32_t applied_look_tick;
 static uint32_t applied_command_tick;
+static char latest_map_name[32];
 
 static size_t ML_BoundedLength(const char *text, size_t limit)
 {
@@ -117,6 +118,32 @@ static qboolean ML_IdMatches(const char *packet_id)
     return packet_len > 0 && packet_len < ML_CLIENT_ID_SIZE &&
         packet_len == configured_len &&
         memcmp(packet_id, ml_client_id->string, packet_len) == 0;
+}
+
+static qboolean ML_UpdateMap(const char *packet_map)
+{
+    size_t map_len = ML_BoundedLength(packet_map, sizeof(latest_map_name));
+    size_t current_len = ML_BoundedLength(
+        latest_map_name, sizeof(latest_map_name));
+    qboolean changed;
+
+    if (!map_len || map_len >= sizeof(latest_map_name))
+        return false;
+    changed = map_len != current_len ||
+        memcmp(packet_map, latest_map_name, map_len) != 0;
+    if (!changed)
+        return true;
+
+    memset(latest_map_name, 0, sizeof(latest_map_name));
+    memcpy(latest_map_name, packet_map, map_len);
+    memset(&latest_action, 0, sizeof(latest_action));
+    latest_action_tick = 0;
+    applied_look_tick = 0;
+    applied_command_tick = 0;
+    if (ml_harness_debug && ml_harness_debug->value)
+        Com_Printf("ML harness: telemetry map changed to %s; action epoch reset\n",
+            latest_map_name);
+    return true;
 }
 
 static void ML_ResolveAddresses(void)
@@ -242,7 +269,8 @@ qboolean ML_HarnessPacket(netadr_t from, const byte *data, int length)
         telemetry = (const ml_client_telemetry_header_t *)data;
         if (telemetry->version == ML_CLIENT_WIRE_VERSION &&
             telemetry->packet_size == (uint32_t)length &&
-            ML_IdMatches(telemetry->client_id))
+            ML_IdMatches(telemetry->client_id) &&
+            ML_UpdateMap(telemetry->map_name))
         {
             registered = true;
             NET_SendPacket(NS_CLIENT, length, (void *)data, harness_address);

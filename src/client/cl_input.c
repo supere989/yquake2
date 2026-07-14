@@ -731,6 +731,7 @@ CL_FinalizeCmd(void)
 
 	cmd->impulse = in_impulse;
 	in_impulse = 0;
+	ML_HarnessFinalizeAction(cmd);
 
 	// Set light level for muzzle flash
 	cmd->lightlevel = (byte)cl_lightlevel->value;

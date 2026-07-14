@@ -51,6 +51,18 @@
 #   If defined, -Werror is added to compiler flags.
 # ----------
 
+# Offline Atlas collision/movement authorities. These targets deliberately
+# remain outside the normal client/server dependency graph.
+.PHONY: oracles oracle-test oracle-clean
+oracles:
+	$(MAKE) -C src/tools/oracle all
+
+oracle-test:
+	$(MAKE) -C src/tools/oracle test
+
+oracle-clean:
+	$(MAKE) -C src/tools/oracle clean
+
 # User configurable options
 # -------------------------
 

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:q2-ml:q2-pmove-oracle-v1",
+  "title": "q2-pmove-oracle v1 NDJSON request",
+  "type": "object",
+  "required": ["op"],
+  "properties": {
+    "id": {"type": "string", "maxLength": 127},
+    "op": {"enum": ["identity", "simulate"]},
+    "origin": {"$ref": "#/$defs/vec3"},
+    "velocity": {"$ref": "#/$defs/vec3"},
+    "pm_type": {"type": "integer", "minimum": 0, "maximum": 4},
+    "pm_flags": {"type": "integer", "minimum": 0, "maximum": 255},
+    "pm_time": {"type": "integer", "minimum": 0, "maximum": 255},
+    "gravity": {"type": "integer", "minimum": 0, "maximum": 32767},
+    "airaccelerate": {"type": "number"},
+    "delta_angles_short": {"$ref": "#/$defs/short3"},
+    "snapinitial": {"type": "boolean"},
+    "commands": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {"$ref": "#/$defs/command"}
+    }
+  },
+  "$defs": {
+    "vec3": {
+      "type": "array",
+      "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "short3": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer", "minimum": -32768, "maximum": 32767},
+        {"type": "integer", "minimum": -32768, "maximum": 32767},
+        {"type": "integer", "minimum": -32768, "maximum": 32767}
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "command": {
+      "type": "object",
+      "required": ["msec"],
+      "properties": {
+        "msec": {"type": "integer", "minimum": 1, "maximum": 255},
+        "angles": {"$ref": "#/$defs/vec3"},
+        "angles_short": {"$ref": "#/$defs/short3"},
+        "forwardmove": {"type": "integer", "minimum": -32768, "maximum": 32767},
+        "sidemove": {"type": "integer", "minimum": -32768, "maximum": 32767},
+        "upmove": {"type": "integer", "minimum": -32768, "maximum": 32767},
+        "buttons": {"type": "integer", "minimum": 0, "maximum": 255},
+        "impulse": {"type": "integer", "minimum": 0, "maximum": 255},
+        "lightlevel": {"type": "integer", "minimum": 0, "maximum": 255}
+      }
+    }
+  }
+}

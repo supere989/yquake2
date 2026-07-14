@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:q2-ml:q2-cm-oracle-v1",
+  "title": "q2-cm-oracle v1 NDJSON request",
+  "type": "object",
+  "required": ["op"],
+  "properties": {
+    "id": {"type": "string", "maxLength": 127},
+    "op": {
+      "enum": ["identity", "map_info", "point_contents", "point_cluster", "box_trace", "pvs", "set_areaportal", "areas_connected"]
+    },
+    "point": {"$ref": "#/$defs/vec3"},
+    "start": {"$ref": "#/$defs/vec3"},
+    "end": {"$ref": "#/$defs/vec3"},
+    "mins": {"$ref": "#/$defs/vec3"},
+    "maxs": {"$ref": "#/$defs/vec3"},
+    "from": {"$ref": "#/$defs/vec3"},
+    "to": {"$ref": "#/$defs/vec3"},
+    "headnode": {"type": "integer"},
+    "mask": {"type": "integer"},
+    "from_cluster": {"type": "integer", "minimum": -1},
+    "to_cluster": {"type": "integer", "minimum": -1},
+    "portal": {"type": "integer", "minimum": 0},
+    "open": {"type": "boolean"},
+    "area1": {"type": "integer", "minimum": 0},
+    "area2": {"type": "integer", "minimum": 0}
+  },
+  "$defs": {
+    "finite": {"type": "number"},
+    "vec3": {
+      "type": "array",
+      "prefixItems": [{"$ref": "#/$defs/finite"}, {"$ref": "#/$defs/finite"}, {"$ref": "#/$defs/finite"}],
+      "minItems": 3,
+      "maxItems": 3
+    }
+  }
+}

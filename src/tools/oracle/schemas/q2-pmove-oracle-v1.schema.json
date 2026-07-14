@@ -3,6 +3,7 @@
   "$id": "urn:q2-ml:q2-pmove-oracle-v1",
   "title": "q2-pmove-oracle v1 NDJSON request",
   "type": "object",
+  "additionalProperties": false,
   "required": ["op"],
   "properties": {
     "id": {"type": "string", "maxLength": 127},
@@ -41,6 +42,7 @@
     },
     "command": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["msec"],
       "properties": {
         "msec": {"type": "integer", "minimum": 1, "maximum": 255},

@@ -126,17 +126,19 @@ static void print_identity(const char *id, int gravity, float airaccelerate,
 	const char *physics_identity)
 {
 	fputs("{\"ok\":true,\"id\":", stdout); Q2_OraclePrintString(stdout, id);
-	fputs(",\"op\":\"identity\",\"schema\":\"q2-pmove-oracle-v1\",\"physics_identity\":", stdout);
+	fputs(",\"op\":\"identity\",\"schema\":\"q2-pmove-oracle-v1\",\"tool_identity\":", stdout);
+	Q2_OraclePrintString(stdout, Q2_TOOL_IDENTITY_SHA256);
+	fputs(",\"physics_identity\":", stdout);
 	Q2_OraclePrintString(stdout, physics_identity);
 	fputs(",\"map_sha256\":", stdout); Q2_OraclePrintString(stdout, map_sha256);
 	fprintf(stdout, ",\"map_checksum\":%u,\"parameters\":{\"gravity\":%d,"
 		"\"airaccelerate\":%.9g,\"constants\":", map_checksum, gravity, airaccelerate);
 	Q2_OraclePrintString(stdout, Q2_PMOVE_CONSTANTS);
-	fputs("},\"source\":{\"collision_sha256\":", stdout); Q2_OraclePrintString(stdout, Q2_COLLISION_SOURCE_SHA256);
+	fputs("},\"provenance\":", stdout); Q2_OraclePrintToolProvenance(stdout);
+	fputs(",\"source\":{\"collision_sha256\":", stdout); Q2_OraclePrintString(stdout, Q2_COLLISION_SOURCE_SHA256);
 	fputs(",\"pmove_sha256\":", stdout); Q2_OraclePrintString(stdout, Q2_PMOVE_SOURCE_SHA256);
 	fputs(",\"shared_header_sha256\":", stdout); Q2_OraclePrintString(stdout, Q2_SHARED_HEADER_SHA256);
 	fputs(",\"shared_source_sha256\":", stdout); Q2_OraclePrintString(stdout, Q2_SHARED_SOURCE_SHA256);
-	fputs(",\"build_contract\":", stdout); Q2_OraclePrintString(stdout, Q2_ORACLE_BUILD_CONTRACT);
 	fputs("}}\n", stdout);
 }
 
@@ -202,8 +204,12 @@ static void handle_line(const char *line)
 	}
 	Q2_PmoveIdentity(map_sha256, move.s.gravity, pm_airaccelerate, identity);
 	fputs("{\"ok\":true,\"id\":", stdout); Q2_OraclePrintString(stdout, id);
-	fputs(",\"op\":\"simulate\",\"schema\":\"q2-pmove-oracle-v1\",\"physics_identity\":", stdout);
+	fputs(",\"op\":\"simulate\",\"schema\":\"q2-pmove-oracle-v1\",\"tool_identity\":", stdout);
+	Q2_OraclePrintString(stdout, Q2_TOOL_IDENTITY_SHA256);
+	fputs(",\"physics_identity\":", stdout);
 	Q2_OraclePrintString(stdout, identity);
+	fputs(",\"map_sha256\":", stdout); Q2_OraclePrintString(stdout, map_sha256);
+	fprintf(stdout, ",\"map_checksum\":%u", map_checksum);
 	fputs(",\"frames\":[", stdout);
 	for (int i = 0; i < command_count; ++i) {
 		move.cmd = commands[i];

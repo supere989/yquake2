@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:q2-ml:q2-cm-oracle-v1:response",
+  "title": "q2-cm-oracle v1 NDJSON response",
+  "oneOf": [
+    {"$ref": "#/$defs/success"},
+    {"$ref": "#/$defs/error"}
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "vec3": {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}], "minItems": 3, "maxItems": 3},
+    "success": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "id", "op", "schema", "tool_identity", "physics_identity", "map_sha256", "map_checksum"],
+      "allOf": [
+        {"if": {"properties": {"op": {"enum": ["identity", "map_info"]}}}, "then": {"required": ["provenance", "source", "map", "model0", "clusters", "inline_models"]}},
+        {"if": {"properties": {"op": {"const": "point_contents"}}}, "then": {"required": ["point", "headnode", "contents"]}},
+        {"if": {"properties": {"op": {"const": "point_cluster"}}}, "then": {"required": ["point", "leaf", "cluster", "area", "contents"]}},
+        {"if": {"properties": {"op": {"const": "box_trace"}}}, "then": {"required": ["headnode", "mask", "fraction", "allsolid", "startsolid", "endpos", "plane", "contents", "surface"]}},
+        {"if": {"properties": {"op": {"const": "pvs"}}}, "then": {"required": ["from_cluster", "to_cluster", "potentially_visible"]}},
+        {"if": {"properties": {"op": {"const": "set_areaportal"}}}, "then": {"required": ["portal", "open"]}},
+        {"if": {"properties": {"op": {"const": "areas_connected"}}}, "then": {"required": ["area1", "area2", "connected"]}}
+      ],
+      "properties": {
+        "ok": {"const": true}, "id": {"type": "string"},
+        "op": {"enum": ["identity", "map_info", "point_contents", "point_cluster", "box_trace", "pvs", "set_areaportal", "areas_connected"]},
+        "schema": {"const": "q2-cm-oracle-v1"},
+        "tool_identity": {"$ref": "#/$defs/sha256"}, "physics_identity": {"$ref": "#/$defs/sha256"},
+        "map_sha256": {"$ref": "#/$defs/sha256"}, "map_checksum": {"type": "integer", "minimum": 0},
+        "provenance": {"$ref": "urn:q2-ml:q2-oracle-tool-identity-v1"},
+        "source": {"$ref": "#/$defs/source"},
+        "map": {"type": "string"}, "model0": {"$ref": "#/$defs/model"},
+        "clusters": {"type": "integer"}, "inline_models": {"type": "integer"},
+        "point": {"$ref": "#/$defs/vec3"}, "headnode": {"type": "integer"}, "contents": {"type": "integer"},
+        "leaf": {"type": "integer"}, "cluster": {"type": "integer"}, "area": {"type": "integer"},
+        "mask": {"type": "integer"}, "fraction": {"type": "number"}, "allsolid": {"type": "boolean"},
+        "startsolid": {"type": "boolean"}, "endpos": {"$ref": "#/$defs/vec3"},
+        "plane": {"$ref": "#/$defs/plane"}, "surface": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/surface"}]},
+        "from_cluster": {"type": "integer"}, "to_cluster": {"type": "integer"}, "potentially_visible": {"type": "boolean"},
+        "portal": {"type": "integer"}, "open": {"type": "boolean"},
+        "area1": {"type": "integer"}, "area2": {"type": "integer"}, "connected": {"type": "boolean"}
+      }
+    },
+    "error": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ok", "id", "error", "detail"],
+      "properties": {"ok": {"const": false}, "id": {"type": "string"}, "error": {"type": "string"}, "detail": {"type": "string"}}
+    },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["collision_sha256", "shared_header_sha256", "shared_source_sha256"],
+      "properties": {"collision_sha256": {"$ref": "#/$defs/sha256"}, "shared_header_sha256": {"$ref": "#/$defs/sha256"}, "shared_source_sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "model": {"type": "object", "additionalProperties": false, "required": ["mins", "maxs", "headnode"], "properties": {"mins": {"$ref": "#/$defs/vec3"}, "maxs": {"$ref": "#/$defs/vec3"}, "headnode": {"type": "integer"}}},
+    "plane": {"type": "object", "additionalProperties": false, "required": ["normal", "dist", "type", "signbits"], "properties": {"normal": {"$ref": "#/$defs/vec3"}, "dist": {"type": "number"}, "type": {"type": "integer"}, "signbits": {"type": "integer"}}},
+    "surface": {"type": "object", "additionalProperties": false, "required": ["name", "flags", "value"], "properties": {"name": {"type": "string"}, "flags": {"type": "integer"}, "value": {"type": "integer"}}}
+  }
+}

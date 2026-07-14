@@ -15,6 +15,11 @@ static void print_prefix(const char *id, const char *op)
 {
 	fputs("{\"ok\":true,\"id\":", stdout); Q2_OraclePrintString(stdout, id);
 	fputs(",\"op\":", stdout); Q2_OraclePrintString(stdout, op);
+	fputs(",\"schema\":\"q2-cm-oracle-v1\",\"tool_identity\":", stdout);
+	Q2_OraclePrintString(stdout, Q2_TOOL_IDENTITY_SHA256);
+	fputs(",\"physics_identity\":", stdout); Q2_OraclePrintString(stdout, physics_identity);
+	fputs(",\"map_sha256\":", stdout); Q2_OraclePrintString(stdout, map_sha256);
+	fprintf(stdout, ",\"map_checksum\":%u", map_checksum);
 }
 
 static int request_header(const char *line, q2_oracle_request_t *request)
@@ -29,14 +34,11 @@ static int request_header(const char *line, q2_oracle_request_t *request)
 
 static void print_identity_fields(void)
 {
-	fputs(",\"schema\":\"q2-cm-oracle-v1\",\"physics_identity\":", stdout);
-	Q2_OraclePrintString(stdout, physics_identity);
-	fputs(",\"map_sha256\":", stdout); Q2_OraclePrintString(stdout, map_sha256);
-	fprintf(stdout, ",\"map_checksum\":%u,\"source\":{", map_checksum);
+	fputs(",\"provenance\":", stdout); Q2_OraclePrintToolProvenance(stdout);
+	fputs(",\"source\":{", stdout);
 	fputs("\"collision_sha256\":", stdout); Q2_OraclePrintString(stdout, Q2_COLLISION_SOURCE_SHA256);
 	fputs(",\"shared_header_sha256\":", stdout); Q2_OraclePrintString(stdout, Q2_SHARED_HEADER_SHA256);
 	fputs(",\"shared_source_sha256\":", stdout); Q2_OraclePrintString(stdout, Q2_SHARED_SOURCE_SHA256);
-	fputs(",\"build_contract\":", stdout); Q2_OraclePrintString(stdout, Q2_ORACLE_BUILD_CONTRACT);
 	fputc('}', stdout);
 }
 

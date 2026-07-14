@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:q2-ml:q2-oracle-identity-v1:response",
+  "title": "Exact Q2 oracle identity response",
+  "oneOf": [
+    {"$ref": "#/$defs/cm"},
+    {"$ref": "#/$defs/pmove"}
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "cm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "id", "op", "schema", "tool_identity", "physics_identity", "map_sha256", "map_checksum", "provenance", "source", "map", "model0", "clusters", "inline_models"],
+      "properties": {
+        "ok": {"const": true}, "id": {"type": "string"}, "op": {"const": "identity"},
+        "schema": {"const": "q2-cm-oracle-v1"}, "tool_identity": {"$ref": "#/$defs/sha256"},
+        "physics_identity": {"$ref": "#/$defs/sha256"}, "map_sha256": {"$ref": "#/$defs/sha256"},
+        "map_checksum": {"type": "integer", "minimum": 0},
+        "provenance": {"$ref": "urn:q2-ml:q2-oracle-tool-identity-v1"},
+        "source": {"$ref": "urn:q2-ml:q2-cm-oracle-v1:response#/$defs/source"},
+        "map": {"type": "string"}, "model0": {"$ref": "urn:q2-ml:q2-cm-oracle-v1:response#/$defs/model"},
+        "clusters": {"type": "integer"}, "inline_models": {"type": "integer"}
+      }
+    },
+    "pmove": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "id", "op", "schema", "tool_identity", "physics_identity", "map_sha256", "map_checksum", "parameters", "provenance", "source"],
+      "properties": {
+        "ok": {"const": true}, "id": {"type": "string"}, "op": {"const": "identity"},
+        "schema": {"const": "q2-pmove-oracle-v1"}, "tool_identity": {"$ref": "#/$defs/sha256"},
+        "physics_identity": {"$ref": "#/$defs/sha256"}, "map_sha256": {"$ref": "#/$defs/sha256"},
+        "map_checksum": {"type": "integer", "minimum": 0},
+        "parameters": {"$ref": "urn:q2-ml:q2-pmove-oracle-v1:response#/$defs/parameters"},
+        "provenance": {"$ref": "urn:q2-ml:q2-oracle-tool-identity-v1"},
+        "source": {"$ref": "urn:q2-ml:q2-pmove-oracle-v1:response#/$defs/source"}
+      }
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:q2-ml:q2-pmove-oracle-v1:response",
+  "title": "q2-pmove-oracle v1 NDJSON response",
+  "oneOf": [{"$ref": "#/$defs/success"}, {"$ref": "#/$defs/error"}],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "vec3": {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}], "minItems": 3, "maxItems": 3},
+    "fixed3": {"type": "array", "prefixItems": [{"type": "integer"}, {"type": "integer"}, {"type": "integer"}], "minItems": 3, "maxItems": 3},
+    "success": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ok", "id", "op", "schema", "tool_identity", "physics_identity", "map_sha256", "map_checksum"],
+      "allOf": [
+        {"if": {"properties": {"op": {"const": "identity"}}}, "then": {"required": ["parameters", "provenance", "source"]}},
+        {"if": {"properties": {"op": {"const": "simulate"}}}, "then": {"required": ["frames", "final", "command_count"]}}
+      ],
+      "properties": {
+        "ok": {"const": true}, "id": {"type": "string"}, "op": {"enum": ["identity", "simulate"]},
+        "schema": {"const": "q2-pmove-oracle-v1"}, "tool_identity": {"$ref": "#/$defs/sha256"},
+        "physics_identity": {"$ref": "#/$defs/sha256"}, "map_sha256": {"$ref": "#/$defs/sha256"},
+        "map_checksum": {"type": "integer", "minimum": 0}, "parameters": {"$ref": "#/$defs/parameters"},
+        "provenance": {"$ref": "urn:q2-ml:q2-oracle-tool-identity-v1"}, "source": {"$ref": "#/$defs/source"},
+        "frames": {"type": "array", "items": {"$ref": "#/$defs/state"}},
+        "final": {"$ref": "#/$defs/state"}, "command_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "error": {"type": "object", "additionalProperties": false, "required": ["ok", "id", "error", "detail"], "properties": {"ok": {"const": false}, "id": {"type": "string"}, "error": {"type": "string"}, "detail": {"type": "string"}}},
+    "parameters": {"type": "object", "additionalProperties": false, "required": ["gravity", "airaccelerate", "constants"], "properties": {"gravity": {"type": "integer"}, "airaccelerate": {"type": "number"}, "constants": {"type": "string"}}},
+    "source": {"type": "object", "additionalProperties": false, "required": ["collision_sha256", "pmove_sha256", "shared_header_sha256", "shared_source_sha256"], "properties": {"collision_sha256": {"$ref": "#/$defs/sha256"}, "pmove_sha256": {"$ref": "#/$defs/sha256"}, "shared_header_sha256": {"$ref": "#/$defs/sha256"}, "shared_source_sha256": {"$ref": "#/$defs/sha256"}}},
+    "state": {
+      "type": "object", "additionalProperties": false,
+      "required": ["command_index", "origin", "velocity", "origin_fixed", "velocity_fixed", "pm_type", "pm_flags", "pm_time", "gravity", "viewangles", "viewheight", "mins", "maxs", "grounded", "waterlevel", "watertype", "touch_count"],
+      "properties": {"command_index": {"type": "integer"}, "origin": {"$ref": "#/$defs/vec3"}, "velocity": {"$ref": "#/$defs/vec3"}, "origin_fixed": {"$ref": "#/$defs/fixed3"}, "velocity_fixed": {"$ref": "#/$defs/fixed3"}, "pm_type": {"type": "integer"}, "pm_flags": {"type": "integer"}, "pm_time": {"type": "integer"}, "gravity": {"type": "integer"}, "viewangles": {"$ref": "#/$defs/vec3"}, "viewheight": {"type": "number"}, "mins": {"$ref": "#/$defs/vec3"}, "maxs": {"$ref": "#/$defs/vec3"}, "grounded": {"type": "boolean"}, "waterlevel": {"type": "integer"}, "watertype": {"type": "integer"}, "touch_count": {"type": "integer"}}
+    }
+  }
+}

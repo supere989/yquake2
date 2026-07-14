@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:q2-ml:q2-oracle-tool-identity-v1",
+  "title": "Q2 oracle tool provenance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tool_identity", "source_closure_sha256", "source_closure_count", "build_identity_sha256", "compiler", "archiver", "build"],
+  "properties": {
+    "schema": {"const": "q2-oracle-tool-identity-v1"},
+    "tool_identity": {"$ref": "#/$defs/sha256"},
+    "source_closure_sha256": {"$ref": "#/$defs/sha256"},
+    "source_closure_count": {"type": "integer", "minimum": 1},
+    "build_identity_sha256": {"$ref": "#/$defs/sha256"},
+    "compiler": {"$ref": "#/$defs/compiler"},
+    "archiver": {"$ref": "#/$defs/archiver"},
+    "build": {"$ref": "#/$defs/build"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "version", "target", "executable_sha256"],
+      "properties": {
+        "command": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "target": {"type": "string", "minLength": 1},
+        "executable_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "archiver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "version", "executable_sha256"],
+      "properties": {
+        "command": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "executable_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cflags", "ldflags"],
+      "properties": {
+        "cflags": {"type": "string"},
+        "ldflags": {"type": "string"}
+      }
+    }
+  }
+}

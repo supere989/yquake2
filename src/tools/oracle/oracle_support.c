@@ -142,6 +142,27 @@ void Q2_OraclePrintError(const char *id, const char *code, const char *detail)
 	fputs("}\n", stdout); fflush(stdout);
 }
 
+void Q2_OraclePrintToolProvenance(FILE *stream)
+{
+	fputs("{\"schema\":\"q2-oracle-tool-identity-v1\",\"tool_identity\":", stream);
+	Q2_OraclePrintString(stream, Q2_TOOL_IDENTITY_SHA256);
+	fputs(",\"source_closure_sha256\":", stream);
+	Q2_OraclePrintString(stream, Q2_SOURCE_CLOSURE_SHA256);
+	fprintf(stream, ",\"source_closure_count\":%d,\"build_identity_sha256\":",
+		Q2_SOURCE_CLOSURE_COUNT);
+	Q2_OraclePrintString(stream, Q2_BUILD_IDENTITY_SHA256);
+	fputs(",\"compiler\":{\"command\":", stream); Q2_OraclePrintString(stream, Q2_COMPILER_COMMAND);
+	fputs(",\"version\":", stream); Q2_OraclePrintString(stream, Q2_COMPILER_VERSION);
+	fputs(",\"target\":", stream); Q2_OraclePrintString(stream, Q2_COMPILER_TARGET);
+	fputs(",\"executable_sha256\":", stream); Q2_OraclePrintString(stream, Q2_COMPILER_BINARY_SHA256);
+	fputs("},\"archiver\":{\"command\":", stream); Q2_OraclePrintString(stream, Q2_ARCHIVER_COMMAND);
+	fputs(",\"version\":", stream); Q2_OraclePrintString(stream, Q2_ARCHIVER_VERSION);
+	fputs(",\"executable_sha256\":", stream); Q2_OraclePrintString(stream, Q2_ARCHIVER_BINARY_SHA256);
+	fputs("},\"build\":{\"cflags\":", stream); Q2_OraclePrintString(stream, Q2_EFFECTIVE_CFLAGS);
+	fputs(",\"ldflags\":", stream); Q2_OraclePrintString(stream, Q2_EFFECTIVE_LDFLAGS);
+	fputs("}}", stream);
+}
+
 void Q2_OracleSHA256Text(const char *text, char out_hex[65])
 {
 	q2_sha256_ctx_t context;
@@ -173,10 +194,8 @@ void Q2_CMIdentity(const char *map_sha256, char out_hex[65])
 {
 	char canonical[1024];
 	snprintf(canonical, sizeof(canonical),
-		"schema=%s;kind=cm;collision=%s;shared_header=%s;shared_source=%s;build=%s;map=%s",
-		Q2_ORACLE_SCHEMA, Q2_COLLISION_SOURCE_SHA256,
-		Q2_SHARED_HEADER_SHA256, Q2_SHARED_SOURCE_SHA256,
-		Q2_ORACLE_BUILD_CONTRACT,
+		"schema=%s;kind=cm;tool_identity=%s;map=%s",
+		Q2_ORACLE_SCHEMA, Q2_TOOL_IDENTITY_SHA256,
 		map_sha256 ? map_sha256 : "");
 	Q2_OracleSHA256Text(canonical, out_hex);
 }
@@ -186,11 +205,9 @@ void Q2_PmoveIdentity(const char *map_sha256, int gravity,
 {
 	char canonical[1536];
 	snprintf(canonical, sizeof(canonical),
-		"schema=%s;kind=pmove;collision=%s;pmove=%s;shared_header=%s;shared_source=%s;build=%s;"
+		"schema=%s;kind=pmove;tool_identity=%s;"
 		"map=%s;gravity=%d;airaccelerate=%.9g;constants=%s",
-		Q2_ORACLE_SCHEMA, Q2_COLLISION_SOURCE_SHA256,
-		Q2_PMOVE_SOURCE_SHA256, Q2_SHARED_HEADER_SHA256, Q2_SHARED_SOURCE_SHA256,
-		Q2_ORACLE_BUILD_CONTRACT, map_sha256 ? map_sha256 : "",
+		Q2_ORACLE_SCHEMA, Q2_TOOL_IDENTITY_SHA256, map_sha256 ? map_sha256 : "",
 		gravity, airaccelerate, Q2_PMOVE_CONSTANTS);
 	Q2_OracleSHA256Text(canonical, out_hex);
 }

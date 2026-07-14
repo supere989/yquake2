@@ -3,6 +3,7 @@
   "$id": "urn:q2-ml:q2-cm-oracle-v1",
   "title": "q2-cm-oracle v1 NDJSON request",
   "type": "object",
+  "additionalProperties": false,
   "required": ["op"],
   "properties": {
     "id": {"type": "string", "maxLength": 127},

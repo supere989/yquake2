@@ -24,6 +24,7 @@ void Q2_OracleSHA256Text(const char *text, char out_hex[65]);
 void Q2_OraclePrintString(FILE *stream, const char *text);
 void Q2_OraclePrintVec3(FILE *stream, const vec3_t value);
 void Q2_OraclePrintError(const char *id, const char *code, const char *detail);
+void Q2_OraclePrintToolProvenance(FILE *stream);
 
 const char *Q2_JsonValue(const char *json, const char *key);
 int Q2_JsonString(const char *json, const char *key, char *out, size_t out_size);

@@ -14,7 +14,13 @@ Both CLIs load one IBSP-38 map and process newline-delimited JSON from stdin.
 Every request may carry an opaque string `id`; each response echoes it. Invalid
 requests return `{"ok":false,...}` and engine map-load failures exit nonzero.
 One input line is limited to 1 MiB and a movement request to 4096 commands.
-Machine-readable request contracts are in `schemas/`. External `.ent` entity
+Machine-readable request, response, and identity contracts are in `schemas/`.
+Responses identify the exact tool independently from their parameter-bound
+physics identity. The tool identity covers the recursive source/header closure,
+all schemas and build support, the compiler and archiver executables and version
+output, and the effective compile/link flags. Changing any of those inputs
+changes the tool identity; changing a map or Pmove parameter changes the physics
+identity as well. External `.ent` entity
 fixups are deliberately disabled because these tools expose collision/Pmove,
 not entity parsing; the map SHA-256 always identifies the BSP bytes loaded.
 
@@ -50,6 +56,8 @@ ground/water/duck state, view geometry, the map digest, source digests, frozen
 movement constants, and a physics identity bound to the map, gravity, and air
 acceleration. Atlas manifests must reject identity mismatches.
 
-Consumers must fail closed: absent or mismatched collision/Pmove responses
+Consumers should pin an `identity` response and admit subsequent records through
+`identity_validation.py`; schema, source closure, build, tool, map, or physics
+identity mismatches are rejected. Consumers must fail closed: absent or mismatched collision/Pmove responses
 omit the affected Atlas cells or jump/drop edges. They must never substitute a
 ballistic or geometry-only approximation.

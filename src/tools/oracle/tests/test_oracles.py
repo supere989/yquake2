@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import copy
+import importlib.util
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,6 +15,8 @@ TOOL_DIR = Path(__file__).resolve().parents[1]
 ROOT = TOOL_DIR.parents[2]
 CM = ROOT / "release" / "q2-cm-oracle"
 PMOVE = ROOT / "release" / "q2-pmove-oracle"
+sys.path.insert(0, str(TOOL_DIR))
+from identity_validation import IdentityMismatch, validate_identity_record, validate_response
 
 SOLID = 1
 WINDOW = 2
@@ -58,6 +63,8 @@ class OracleTests(unittest.TestCase):
                 ((-2048, -2048, -128), (2048, 2048, 0), SOLID),
                 ((0, -256, 0), (2048, 256, height), SOLID),
             ])
+        cls.cm_identity = invoke(CM, cls.floor, [{"id": "cm-id", "op": "identity"}])[0]
+        cls.pmove_identity = invoke(PMOVE, cls.floor, [{"id": "pm-id", "op": "identity"}])[0]
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -87,10 +94,87 @@ class OracleTests(unittest.TestCase):
 
     def test_machine_readable_schemas(self) -> None:
         schemas = TOOL_DIR / "schemas"
-        cm = json.loads((schemas / "q2-cm-oracle-v1.schema.json").read_text())
-        pmove = json.loads((schemas / "q2-pmove-oracle-v1.schema.json").read_text())
-        self.assertEqual(cm["$id"], "urn:q2-ml:q2-cm-oracle-v1")
-        self.assertEqual(pmove["$id"], "urn:q2-ml:q2-pmove-oracle-v1")
+        expected = {
+            "q2-cm-oracle-v1.schema.json": "urn:q2-ml:q2-cm-oracle-v1",
+            "q2-pmove-oracle-v1.schema.json": "urn:q2-ml:q2-pmove-oracle-v1",
+            "q2-cm-oracle-v1.response.schema.json": "urn:q2-ml:q2-cm-oracle-v1:response",
+            "q2-pmove-oracle-v1.response.schema.json": "urn:q2-ml:q2-pmove-oracle-v1:response",
+            "q2-oracle-tool-identity-v1.schema.json": "urn:q2-ml:q2-oracle-tool-identity-v1",
+            "q2-oracle-identity-v1.response.schema.json": "urn:q2-ml:q2-oracle-identity-v1:response",
+        }
+        for name, schema_id in expected.items():
+            with self.subTest(schema=name):
+                self.assertEqual(json.loads((schemas / name).read_text())["$id"], schema_id)
+
+    def test_identity_admission_is_strict_and_fail_closed(self) -> None:
+        validate_identity_record(self.cm_identity, "cm")
+        validate_identity_record(self.pmove_identity, "pmove")
+        point = invoke(CM, self.floor, [
+            {"id": "p", "op": "point_contents", "point": [0, 0, 24]},
+        ])[0]
+        movement = invoke(PMOVE, self.floor, [{
+            "id": "m", "op": "simulate", "origin": [0, 0, 24],
+            "commands": [{"msec": 10}],
+        }])[0]
+        validate_response(point, self.cm_identity, "cm")
+        validate_response(movement, self.pmove_identity, "pmove")
+
+        mutations = (
+            ("schema", lambda value: value.__setitem__("schema", "q2-cm-oracle-v0")),
+            ("source", lambda value: value["source"].__setitem__("collision_sha256", "0" * 64)),
+            ("build", lambda value: value["provenance"].__setitem__("build_identity_sha256", "1" * 64)),
+            ("tool", lambda value: value.__setitem__("tool_identity", "2" * 64)),
+            ("physics", lambda value: value.__setitem__("physics_identity", "3" * 64)),
+            ("unknown", lambda value: value.__setitem__("uncontracted", True)),
+        )
+        for label, mutate in mutations:
+            with self.subTest(mismatch=label):
+                changed = copy.deepcopy(self.cm_identity)
+                mutate(changed)
+                with self.assertRaises(IdentityMismatch):
+                    validate_response(changed, self.cm_identity, "cm")
+
+    def test_source_closure_covers_all_build_inputs(self) -> None:
+        spec = importlib.util.spec_from_file_location("oracle_gen_identity", TOOL_DIR / "gen_identity.py")
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(module)
+        closure = {path.relative_to(ROOT).as_posix() for path in module.source_closure(ROOT)}
+        expected = set(module.COMPILED_SOURCES) | set(module.BUILD_INPUTS)
+        expected |= {
+            f"src/tools/oracle/schemas/{path.name}"
+            for path in (TOOL_DIR / "schemas").glob("*.json")
+        }
+        self.assertTrue(expected <= closure)
+        self.assertEqual(self.cm_identity["provenance"]["source_closure_count"], len(closure))
+
+    def test_actual_build_identity_is_deterministic_and_flag_bound(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="q2-oracle-build-") as directory:
+            build = Path(directory) / "build"
+            binary_dir = Path(directory) / "bin"
+
+            def make(extra: list[str]) -> dict:
+                command = [
+                    "make", "-C", str(TOOL_DIR), f"BUILD={build}", f"BIN={binary_dir}",
+                    "all", *extra,
+                ]
+                result = subprocess.run(command, text=True, stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT, check=False)
+                if result.returncode != 0:
+                    self.fail(f"isolated oracle build failed:\n{result.stdout}")
+                return invoke(binary_dir / "q2-cm-oracle", self.floor,
+                              [{"id": "identity", "op": "identity"}])[0]
+
+            baseline = make([])
+            changed = make(["CFLAGS=-DQ2_ORACLE_IDENTITY_TEST=1"])
+            repeated = make(["CFLAGS=-DQ2_ORACLE_IDENTITY_TEST=1"])
+            self.assertEqual(changed, repeated)
+            self.assertEqual(baseline["provenance"]["source_closure_sha256"],
+                             changed["provenance"]["source_closure_sha256"])
+            self.assertNotEqual(baseline["provenance"]["build_identity_sha256"],
+                                changed["provenance"]["build_identity_sha256"])
+            self.assertNotEqual(baseline["tool_identity"], changed["tool_identity"])
 
     def test_stationary_and_swept_standing_and_crouched_hulls(self) -> None:
         requests = [

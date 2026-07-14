@@ -11,15 +11,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define ML_CLIENT_WIRE_VERSION 2u
+#define ML_CLIENT_WIRE_VERSION 3u
 #define ML_CLIENT_REGISTER_MAGIC 0x52434d51u
 #define ML_CLIENT_ACK_MAGIC      0x41434d51u
 #define ML_CLIENT_TELEM_MAGIC    0x54434d51u
 #define ML_ACTION_MAGIC          0x514d4c41u
 #define ML_CLIENT_ID_SIZE 40
 #define ML_CLIENT_TOKEN_SIZE 64
-#define ML_HARNESS_IMPULSE_BASE 160u
-#define ML_HARNESS_IMPULSE_COUNT 40u
+#define ML_HARNESS_IMPULSE_BASE 16u
+#define ML_HARNESS_ACTION_COUNT 40u
+#define ML_HARNESS_GENERATION_COUNT 6u
+#define ML_HARNESS_IMPULSE_COUNT \
+    (ML_HARNESS_ACTION_COUNT * ML_HARNESS_GENERATION_COUNT)
 
 typedef struct
 {
@@ -338,11 +341,13 @@ void ML_HarnessFinalizeAction(usercmd_t *cmd)
         return;
 
     /* usercmd.impulse is unused by the Quake II game and already travels in
-       the ordinary protocol-34 command stream. Reserve 160..199 as a compact,
-       tick-attributed echo of the hook/weapon request; game.so validates this
-       only for registered ML identities. Reliable `cmd hook/use` remains the
-       actual gameplay mechanism. */
-    encoded = (uint32_t)latest_action.hook * 10u +
+       the ordinary protocol-34 command stream. Reserve 16..255 as a compact
+       modulo-six decision identity plus hook/weapon request; game.so validates
+       this only for registered ML identities. Reliable `cmd hook/use` remains
+       the actual gameplay mechanism. */
+    encoded = (latest_action.tick % ML_HARNESS_GENERATION_COUNT) *
+        ML_HARNESS_ACTION_COUNT +
+        (uint32_t)latest_action.hook * 10u +
         (uint32_t)latest_action.weapon;
     if (encoded < ML_HARNESS_IMPULSE_COUNT)
         cmd->impulse = (byte)(ML_HARNESS_IMPULSE_BASE + encoded);

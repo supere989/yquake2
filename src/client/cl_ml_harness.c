@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define ML_CLIENT_WIRE_VERSION 3u
+#define ML_CLIENT_WIRE_VERSION 4u
 #define ML_CLIENT_REGISTER_MAGIC 0x52434d51u
 #define ML_CLIENT_ACK_MAGIC      0x41434d51u
 #define ML_CLIENT_TELEM_MAGIC    0x54434d51u
@@ -20,9 +20,12 @@
 #define ML_CLIENT_TOKEN_SIZE 64
 #define ML_HARNESS_IMPULSE_BASE 16u
 #define ML_HARNESS_ACTION_COUNT 40u
-#define ML_HARNESS_GENERATION_COUNT 6u
+#define ML_HARNESS_HIGH_GENERATION_COUNT 6u
 #define ML_HARNESS_IMPULSE_COUNT \
-    (ML_HARNESS_ACTION_COUNT * ML_HARNESS_GENERATION_COUNT)
+    (ML_HARNESS_ACTION_COUNT * ML_HARNESS_HIGH_GENERATION_COUNT)
+#define ML_HARNESS_BUTTON_GENERATION_SHIFT 2u
+#define ML_HARNESS_BUTTON_GENERATION_MASK 0x7Cu
+#define ML_HARNESS_LOW_GENERATION_COUNT 32u
 
 typedef struct
 {
@@ -341,14 +344,19 @@ void ML_HarnessFinalizeAction(usercmd_t *cmd)
         return;
 
     /* usercmd.impulse is unused by the Quake II game and already travels in
-       the ordinary protocol-34 command stream. Reserve 16..255 as a compact
-       modulo-six decision identity plus hook/weapon request; game.so validates
-       this only for registered ML identities. Reliable `cmd hook/use` remains
-       the actual gameplay mechanism. */
-    encoded = (latest_action.tick % ML_HARNESS_GENERATION_COUNT) *
+       the ordinary protocol-34 command stream. Reserve 16..255 plus five
+       otherwise-unused button bits as a modulo-192 decision identity and
+       hook/weapon request; game.so validates this only for registered ML
+       identities and strips the private button bits before gameplay. Reliable
+       `cmd hook/use` remains the actual gameplay mechanism. */
+    encoded = ((latest_action.tick / ML_HARNESS_LOW_GENERATION_COUNT) %
+        ML_HARNESS_HIGH_GENERATION_COUNT) *
         ML_HARNESS_ACTION_COUNT +
         (uint32_t)latest_action.hook * 10u +
         (uint32_t)latest_action.weapon;
     if (encoded < ML_HARNESS_IMPULSE_COUNT)
         cmd->impulse = (byte)(ML_HARNESS_IMPULSE_BASE + encoded);
+    cmd->buttons = (byte)((cmd->buttons & ~ML_HARNESS_BUTTON_GENERATION_MASK) |
+        ((latest_action.tick % ML_HARNESS_LOW_GENERATION_COUNT) <<
+            ML_HARNESS_BUTTON_GENERATION_SHIFT));
 }

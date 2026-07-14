@@ -522,7 +522,7 @@ extern qboolean userinfo_modified;
 /* NET */
 
 #define PORT_ANY -1
-#define MAX_MSGLEN 1400             /* max length of a message */
+#define MAX_MSGLEN 8192             /* match the public bot-compatible server */
 #define PACKET_HEADER 10            /* two ints and a short */
 
 typedef enum

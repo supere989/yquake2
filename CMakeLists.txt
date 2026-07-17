@@ -493,6 +493,8 @@ set(Client-Source
 	${SERVER_SRC_DIR}/sv_game.c
 	${SERVER_SRC_DIR}/sv_init.c
 	${SERVER_SRC_DIR}/sv_main.c
+	${SERVER_SRC_DIR}/sv_ml_frame_barrier.c
+	${SERVER_SRC_DIR}/sv_ml_frame_barrier_core.c
 	${SERVER_SRC_DIR}/sv_save.c
 	${SERVER_SRC_DIR}/sv_send.c
 	${SERVER_SRC_DIR}/sv_user.c
@@ -573,6 +575,8 @@ set(Server-Source
 	${SERVER_SRC_DIR}/sv_game.c
 	${SERVER_SRC_DIR}/sv_init.c
 	${SERVER_SRC_DIR}/sv_main.c
+	${SERVER_SRC_DIR}/sv_ml_frame_barrier.c
+	${SERVER_SRC_DIR}/sv_ml_frame_barrier_core.c
 	${SERVER_SRC_DIR}/sv_save.c
 	${SERVER_SRC_DIR}/sv_send.c
 	${SERVER_SRC_DIR}/sv_user.c
@@ -593,6 +597,8 @@ set(Server-Header
 	${COMMON_SRC_DIR}/unzip/miniz/miniz_tinfl.h
 	${COMMON_SRC_DIR}/unzip/miniz/minizconf.h
 	${SERVER_SRC_DIR}/header/server.h
+	${SERVER_SRC_DIR}/header/sv_ml_frame_barrier.h
+	${SERVER_SRC_DIR}/header/sv_ml_frame_barrier_core.h
 	)
 
 set(GL1-Source

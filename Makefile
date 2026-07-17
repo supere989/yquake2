@@ -1071,6 +1071,8 @@ CLIENT_OBJS_ := \
 	src/server/sv_entities.o \
 	src/server/sv_game.o \
 	src/server/sv_init.o \
+	src/server/sv_ml_frame_barrier.o \
+	src/server/sv_ml_frame_barrier_core.o \
 	src/server/sv_main.o \
 	src/server/sv_save.o \
 	src/server/sv_send.o \
@@ -1249,6 +1251,8 @@ SERVER_OBJS_ := \
 	src/server/sv_entities.o \
 	src/server/sv_game.o \
 	src/server/sv_init.o \
+	src/server/sv_ml_frame_barrier.o \
+	src/server/sv_ml_frame_barrier_core.o \
 	src/server/sv_main.o \
 	src/server/sv_save.o \
 	src/server/sv_send.o \

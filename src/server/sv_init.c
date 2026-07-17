@@ -25,6 +25,7 @@
  */
 
 #include "header/server.h"
+#include "header/sv_ml_frame_barrier.h"
 #include <limits.h>
 
 /* initialize the entities array to at least this many entities */
@@ -302,6 +303,8 @@ SV_SpawnServer(char *server, char *spawnpoint, server_state_t serverstate,
 		svs.clients[i].lastframe = -1;
 	}
 
+	SV_MLFrameBarrierResetMap();
+
 	sv.time = 1000;
 
 	strcpy(sv.name, server);
@@ -344,6 +347,19 @@ SV_SpawnServer(char *server, char *spawnpoint, server_state_t serverstate,
 	/* run two frames to allow everything to settle */
 	ge->RunFrame();
 	ge->RunFrame();
+	/* The game DLL advances its level clock during the two mandatory settle
+	 * frames, while ordinary Yamagi historically leaves the engine clock at
+	 * zero.  A deterministic barrier needs one shared authoritative tick for
+	 * usercmd staging and telemetry.  Align only the isolated barrier runtime;
+	 * the default-off server keeps the legacy sv.time=1000 startup behavior. */
+	if (SV_MLFrameBarrierModeEnabled())
+	{
+		sv.framenum = 2;
+		sv.time = sv.framenum * 100;
+		Com_Printf("ML_FRAME_BARRIER_EVENT event=startup_clock_sync "
+			"settle_frames=2 server_frame=%d server_time=%d\n",
+			sv.framenum, sv.time);
+	}
 
 	/* verify game didn't clobber important stuff */
 	if ((int)checksum !=
@@ -653,4 +669,3 @@ SV_Map(qboolean attractloop, char *levelstring, qboolean loadgame, qboolean isau
 
 	SV_BroadcastCommand("reconnect\n");
 }
-

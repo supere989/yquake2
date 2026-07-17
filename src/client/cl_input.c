@@ -648,6 +648,7 @@ CL_RefreshCmd(void)
 	cmd->angles[0] = ANGLE2SHORT(cl.viewangles[0]);
 	cmd->angles[1] = ANGLE2SHORT(cl.viewangles[1]);
 	cmd->angles[2] = ANGLE2SHORT(cl.viewangles[2]);
+	ML_HarnessActionAnglesPrepared(cmd);
 
 	// Update time for prediction
 	ms = (int)(cls.nframetime * 1000.0f);

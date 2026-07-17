@@ -25,6 +25,7 @@
  */
 
 #include "header/server.h"
+#include "header/sv_ml_frame_barrier.h"
 
 extern cvar_t *hostname;
 extern cvar_t *rcon_password;
@@ -158,6 +159,7 @@ SVC_DirectConnect(void)
 	int version;
 	int qport;
 	int challenge;
+	char barrier_reject[96];
 
 	adr = net_from;
 
@@ -267,6 +269,14 @@ SVC_DirectConnect(void)
 	}
 
 gotnewcl:
+	if (!SV_MLFrameBarrierAdmit(userinfo, (int)(newcl - svs.clients),
+		barrier_reject, sizeof(barrier_reject)))
+	{
+		Netchan_OutOfBandPrint(NS_SERVER, adr,
+			"print\n%s.\nConnection refused.\n", barrier_reject);
+		Com_DPrintf("ML frame barrier rejected a connection.\n");
+		return;
+	}
 
 	/* build a new connection  accept the new client this
 	   is the only place a client_t is ever initialized */
@@ -316,6 +326,7 @@ gotnewcl:
 	newcl->datagram.allowoverflow = true;
 	newcl->lastmessage = svs.realtime;  /* don't timeout */
 	newcl->lastconnect = svs.realtime;
+	SV_MLFrameBarrierConnected(newcl);
 }
 
 static int
@@ -437,4 +448,3 @@ SV_ConnectionlessPacket(void)
 				NET_AdrToString(net_from), s);
 	}
 }
-

@@ -844,6 +844,9 @@ CL_ParseFrame(void)
 
 	if (cl.frame.valid)
 	{
+		/* The ML harness may be waiting for this ordinary protocol playerstate
+		 * to establish a new-life command-angle basis. */
+		ML_HarnessServerFrame();
 		/* getting a valid frame message ends the connection process */
 		if (cls.state != ca_active)
 		{
@@ -898,6 +901,7 @@ CL_ParseServerData(void)
 
 	/* wipe the client_state_t struct */
 	CL_ClearState();
+	ML_HarnessResetEpoch();
 	cls.state = ca_connected;
 
 	/* parse protocol version number */

@@ -25,6 +25,7 @@
  */
 
 #include "header/server.h"
+#include "header/sv_ml_frame_barrier.h"
 
 #define MAX_STRINGCMDS 8
 
@@ -603,8 +604,8 @@ SV_ExecuteUserCommand(char *s)
 	}
 }
 
-static void
-SV_ClientThink(client_t *cl, usercmd_t *cmd)
+void
+SV_ApplyClientCommand(client_t *cl, usercmd_t *cmd)
 {
 	cl->commandMsec -= cmd->msec;
 
@@ -671,6 +672,7 @@ SV_ExecuteClientMessage(client_t *cl)
 			case clc_userinfo:
 				Q_strlcpy(cl->userinfo, MSG_ReadString(&net_message), sizeof(cl->userinfo));
 				SV_UserinfoChanged(cl);
+				SV_MLFrameBarrierValidateClient(cl);
 				break;
 
 			case clc_move:
@@ -721,7 +723,20 @@ SV_ExecuteClientMessage(client_t *cl)
 					return;
 				}
 
-				if (!sv_paused->value)
+				if (!sv_paused->value && SV_MLFrameBarrierEpochDrain())
+				{
+					/* Epoch drain advances ordinary lifecycle/networking with a
+					 * neutral command only.  Arrival-order ML input can neither
+					 * move nor fire while the next map is being established. */
+					SV_MLFrameBarrierDrainMove(cl, &newcmd);
+				}
+				else if (!sv_paused->value && SV_MLFrameBarrierEnabled())
+				{
+					net_drop = cl->netchan.dropped;
+					SV_MLFrameBarrierStageMove(cl, &oldest, &oldcmd,
+						&newcmd, net_drop);
+				}
+				else if (!sv_paused->value)
 				{
 					net_drop = cl->netchan.dropped;
 
@@ -729,23 +744,23 @@ SV_ExecuteClientMessage(client_t *cl)
 					{
 						while (net_drop > 2)
 						{
-							SV_ClientThink(cl, &cl->lastcmd);
+							SV_ApplyClientCommand(cl, &cl->lastcmd);
 
 							net_drop--;
 						}
 
 						if (net_drop > 1)
 						{
-							SV_ClientThink(cl, &oldest);
+							SV_ApplyClientCommand(cl, &oldest);
 						}
 
 						if (net_drop > 0)
 						{
-							SV_ClientThink(cl, &oldcmd);
+							SV_ApplyClientCommand(cl, &oldcmd);
 						}
 					}
 
-					SV_ClientThink(cl, &newcmd);
+					SV_ApplyClientCommand(cl, &newcmd);
 				}
 
 				cl->lastcmd = newcmd;
@@ -757,7 +772,10 @@ SV_ExecuteClientMessage(client_t *cl)
 				/* malicious users may try using too many string commands */
 				if (++stringCmdCount < MAX_STRINGCMDS)
 				{
-					SV_ExecuteUserCommand(s);
+					if (!SV_MLFrameBarrierStringCommand(cl, s))
+					{
+						SV_ExecuteUserCommand(s);
+					}
 				}
 
 				if (cl->state == cs_zombie)
@@ -769,4 +787,3 @@ SV_ExecuteClientMessage(client_t *cl)
 		}
 	}
 }
-

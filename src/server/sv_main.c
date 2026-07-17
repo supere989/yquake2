@@ -25,6 +25,7 @@
  */
 
 #include "header/server.h"
+#include "header/sv_ml_frame_barrier.h"
 
 #define HEARTBEAT_SECONDS 300
 
@@ -57,6 +58,9 @@ cvar_t *sv_downloadserver; /* Download server. */
 
 void SV_ConnectionlessPacket(void);
 
+static void SV_DropClientWithReason(client_t *drop,
+	const char *barrier_reason);
+
 /*
  * Called when the player is totally leaving the server, either willingly
  * or unwillingly.  This is NOT called if the entire server is quiting
@@ -65,6 +69,14 @@ void SV_ConnectionlessPacket(void);
 void
 SV_DropClient(client_t *drop)
 {
+	SV_DropClientWithReason(drop, "engine-drop");
+}
+
+static void
+SV_DropClientWithReason(client_t *drop, const char *barrier_reason)
+{
+	SV_MLFrameBarrierDisconnected(drop, barrier_reason);
+
 	/* add the disconnect */
 	MSG_WriteByte(&drop->netchan.message, svc_disconnect);
 
@@ -301,7 +313,7 @@ SV_CheckTimeouts(void)
 			(cl->lastmessage < droppoint))
 		{
 			SV_BroadcastPrintf(PRINT_HIGH, "%s timed out\n", cl->name);
-			SV_DropClient(cl);
+			SV_DropClientWithReason(cl, "liveness");
 			cl->state = cs_free; /* don't bother with zombie state */
 		}
 	}
@@ -387,7 +399,10 @@ SV_Optimizations(void)
 void
 SV_Frame(int usec)
 {
+	static int ml_epoch_drain_logged_frame = -1;
 	int opt_sendrate;
+	qboolean barrier_commit = false;
+	ml_barrier_gate_result_t barrier_gate;
 
 #ifndef DEDICATED_ONLY
 	time_before_game = time_after_game = 0;
@@ -401,14 +416,21 @@ SV_Frame(int usec)
 
 	svs.realtime += usec / 1000;
 
-	/* keep the random time dependent */
-	randk();
+	/* Ordinary servers retain the historical once-per-SV_Frame perturbation.
+	 * An isolated barrier may spin the networking loop many times while the
+	 * world is held, so its RNG advances only below when a game frame actually
+	 * commits. */
+	if (!SV_MLFrameBarrierModeEnabled())
+	{
+		randk();
+	}
 
 	/* check timeouts */
 	SV_CheckTimeouts();
 
 	/* get packets from clients */
 	SV_ReadPackets();
+	SV_MLFrameBarrierValidateLiveness();
 
 	/* send messages more often to new clients getting ready for spawning in
 	   speeds up the process of sending configstrings, entty deltas, etc.
@@ -420,8 +442,54 @@ SV_Frame(int usec)
 		SV_SendPrepClientMessages();
 	}
 
+	/* Drain is an ordinary lifecycle clock, but it is intentionally outside
+	 * the ML transaction clock.  Emit one qualification witness per advancing
+	 * server frame, never per networking spin. */
+	if (SV_MLFrameBarrierEpochDrain())
+	{
+		if (Cvar_VariableValue("sv_ml_frame_barrier_test_mode") &&
+			ml_epoch_drain_logged_frame != sv.framenum)
+		{
+			ml_epoch_drain_logged_frame = sv.framenum;
+			Com_Printf("ML_FRAME_BARRIER_EVENT event=epoch_drain_clock "
+				"server_frame=%d realtime=%d\n", sv.framenum, svs.realtime);
+		}
+	}
+	else
+	{
+		ml_epoch_drain_logged_frame = -1;
+	}
+
+	/* In isolated barrier mode networking continues while the simulation clock
+	 * is frozen.  No preframe/game work is allowed until the complete roster
+	 * has one coherent transaction. */
+	if (SV_MLFrameBarrierEnabled())
+	{
+		barrier_gate = SV_MLFrameBarrierPoll();
+		if (barrier_gate == ML_BARRIER_GATE_FAULT)
+		{
+			Com_Printf("ML_FRAME_BARRIER_EVENT event=fatal fault=%s "
+				"server_frame=%d realtime=%d\n", SV_MLFrameBarrierFault(),
+				sv.framenum, svs.realtime);
+			Com_Error(ERR_DROP, "ML frame barrier fault: %s\n",
+				SV_MLFrameBarrierFault());
+			return;
+		}
+		if (barrier_gate == ML_BARRIER_GATE_HOLD)
+		{
+			SV_SendClientMessages();
+			if (!opt_sendrate)
+			{
+				SV_SendPrepClientMessages();
+			}
+			NET_Sleep(1);
+			return;
+		}
+		barrier_commit = true;
+	}
+
 	/* move autonomous things around if enough time has passed */
-	if (!sv_timedemo->value && (svs.realtime < sv.time))
+	if (!barrier_commit && !sv_timedemo->value && (svs.realtime < sv.time))
 	{
 		/* never let the time get too far off */
 		if (sv.time - svs.realtime > 100)
@@ -445,7 +513,19 @@ SV_Frame(int usec)
 	SV_GiveMsec();
 
 	/* let everything in the world think and move */
+	if (barrier_commit)
+	{
+		SV_MLFrameBarrierApplyCommands();
+	}
+	if (SV_MLFrameBarrierModeEnabled())
+	{
+		randk();
+	}
 	SV_RunGameFrame();
+	if (barrier_commit)
+	{
+		SV_MLFrameBarrierCommitted();
+	}
 
 	/* send messages back to the clients that had packets read this frame */
 	SV_SendClientMessages();
@@ -602,6 +682,7 @@ void
 SV_Init(void)
 {
 	SV_InitOperatorCommands();
+	SV_MLFrameBarrierInit();
 
 	sv_optimize_sp_loadtime = Cvar_Get("sv_optimize_sp_loadtime", "31", 0);
 	sv_optimize_mp_loadtime = Cvar_Get("sv_optimize_mp_loadtime", "7", 0);
